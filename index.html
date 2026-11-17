@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>LYNX CHAT — Talk to Strangers</title>
+<style>
+  :root{
+    --bg:#0b0d12; --bg2:#141821; --panel:#1a1f2b; --line:#2a3142;
+    --text:#e8ecf4; --muted:#8b93a7; --accent:#f5a623; --accent2:#ffcf5c;
+    --green:#34d399; --red:#f87171; --blue:#60a5fa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+  button{font-family:inherit;cursor:pointer;border:none;outline:none}
+  input,select{font-family:inherit;outline:none}
+
+  .screen{position:fixed;inset:0;display:none;flex-direction:column}
+  .screen.active{display:flex}
+
+  /* ---------- LANDING ---------- */
+  #landing{align-items:center;justify-content:center;padding:24px;overflow-y:auto}
+  .logo{font-size:44px;font-weight:900;letter-spacing:6px;color:var(--accent);text-shadow:0 0 30px rgba(245,166,35,.35)}
+  .logo span{color:var(--text)}
+  .tagline{margin-top:6px;color:var(--muted);font-size:14px;letter-spacing:2px;text-transform:uppercase}
+  .online-pill{margin-top:14px;background:var(--panel);border:1px solid var(--line);padding:6px 14px;border-radius:999px;font-size:13px;color:var(--muted)}
+  .online-pill b{color:var(--green)}
+  .card{margin-top:26px;width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:16px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase}
+  .field input,.field select{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:13px 14px;font-size:15px}
+  .field input:focus,.field select:focus{border-color:var(--accent)}
+  .seg{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .seg button{flex:1;padding:12px;background:transparent;color:var(--muted);font-size:14px;font-weight:600}
+  .seg button.on{background:var(--accent);color:#1a1200}
+  .start-btn{margin-top:4px;width:100%;padding:16px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#1a1200;font-size:17px;font-weight:800;letter-spacing:1px;box-shadow:0 8px 24px rgba(245,166,35,.3)}
+  .start-btn:active{transform:scale(.98)}
+  .hint{font-size:12px;color:var(--muted);text-align:center;line-height:1.6}
+  .hint b{color:var(--accent2)}
+
+  /* ---------- SEARCHING ---------- */
+  #searching{align-items:center;justify-content:center;gap:22px;padding:24px}
+  .pulse{width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,rgba(245,166,35,.25),transparent 70%);display:flex;align-items:center;justify-content:center;position:relative;animation:breathe 1.6s ease-in-out infinite}
+  .pulse::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent);animation:ring 1.6s ease-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+  @keyframes ring{0%{transform:scale(.7);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+  .pulse .eye{font-size:44px}
+  #searching h2{font-size:20px;letter-spacing:1px}
+  #searching .sub{color:var(--muted);font-size:14px;text-align:center;max-width:320px;line-height:1.6}
+  .cancel-btn{padding:12px 28px;border-radius:12px;background:var(--panel);border:1px solid var(--line);color:var(--text);font-size:14px;font-weight:600}
+
+  /* ---------- CHAT ---------- */
+  #chat{background:#000}
+  .video-wrap{flex:1;position:relative;overflow:hidden;background:#000}
+  #remoteVideo{width:100%;height:100%;object-fit:cover;background:#000}
+  .remote-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(circle at 50% 40%,#1a1f2b,#000);color:var(--muted)}
+  .remote-placeholder .big{font-size:64px}
+  .remote-placeholder .txt{font-size:15px;letter-spacing:1px}
+  .flag-badge{position:absolute;top:14px;left:14px;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);padding:6px 12px;border-radius:999px;font-size:14px;display:flex;align-items:center;gap:8px;z-index:5}
+  .conn-status{position:absolute;top:14px;right:14px;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);padding:6px 12px;border-radius:999px;font-size:12px;z-index:5;display:flex;align-items:center;gap:6px}
+  .conn-status .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:blink 1.2s infinite}
+  .conn-status.live .dot{background:var(--green);animation:none}
+  @keyframes blink{50%{opacity:.3}}
+  .local-pip{position:absolute;bottom:96px;right:14px;width:110px;height:150px;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.25);background:#111;z-index:5;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+  .local-pip video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  .local-pip .muted-tag{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:6px;font-size:10px;color:var(--red);display:none}
+  .typing-ind{position:absolute;bottom:96px;left:14px;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);padding:6px 12px;border-radius:999px;font-size:12px;color:var(--muted);z-index:5;display:none}
+  .typing-ind.show{display:block}
+  .typing-ind span{display:inline-block;animation:blink 1s infinite}
+  .typing-ind span:nth-child(2){animation-delay:.2s}.typing-ind span:nth-child(3){animation-delay:.4s}
+
+  /* control bar */
+  .controls{display:flex;align-items:center;justify-content:center;gap:12px;padding:14px;background:rgba(10,12,18,.92);backdrop-filter:blur(10px);border-top:1px solid var(--line);z-index:10}
+  .ctrl{width:52px;height:52px;border-radius:50%;background:var(--panel);border:1px solid var(--line);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:20px;transition:.15s}
+  .ctrl:active{transform:scale(.92)}
+  .ctrl.off{background:var(--red);color:#fff;border-color:var(--red)}
+  .ctrl.next{background:var(--accent);color:#1a1200;border-color:var(--accent);font-weight:900;width:auto;padding:0 22px;border-radius:14px;font-size:15px;letter-spacing:1px}
+  .ctrl.end{background:var(--red);color:#fff;border-color:var(--red)}
+
+  /* chat panel */
+  .chat-panel{position:absolute;left:0;right:0;bottom:80px;top:0;background:rgba(11,13,18,.92);backdrop-filter:blur(12px);z-index:8;display:none;flex-direction:column}
+  .chat-panel.open{display:flex}
+  .chat-head{padding:14px 18px;border-bottom:1px solid var(--line);font-size:14px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .chat-head .close-x{background:none;color:var(--muted);font-size:18px}
+  .msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
+  .msg{max-width:78%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.45;word-wrap:break-word}
+  .msg.me{align-self:flex-end;background:var(--accent);color:#1a1200;border-bottom-right-radius:4px}
+  .msg.them{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px}
+  .sys{align-self:center;color:var(--muted);font-size:12px;padding:4px 10px}
+  .chat-input{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+  .chat-input input{flex:1;background:var(--bg2);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px 14px;font-size:14px}
+  .chat-input button{background:var(--accent);color:#1a1200;font-weight:800;padding:0 18px;border-radius:12px;font-size:14px}
+
+  /* toast */
+  .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);color:var(--text);padding:12px 20px;border-radius:12px;font-size:14px;z-index:99;display:none;max-width:90%;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .toast.show{display:block;animation:slidein .25s ease}
+  @keyframes slidein{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+
+  .left-overlay{position:absolute;inset:0;background:rgba(0,0,0,.75);z-index:6;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;backdrop-filter:blur(4px)}
+  .left-overlay.show{display:flex}
+  .left-overlay h3{font-size:20px}
+  .left-overlay p{color:var(--muted);font-size:14px}
+  .left-overlay button{padding:13px 30px;border-radius:12px;background:var(--accent);color:#1a1200;font-weight:800;font-size:15px}
+
+  /* soundboard */
+  .sound-panel{position:absolute;left:0;right:0;bottom:80px;background:rgba(11,13,18,.95);backdrop-filter:blur(12px);border-top:1px solid var(--line);z-index:9;display:none;flex-direction:column;padding:14px 16px 18px}
+  .sound-panel.open{display:flex}
+  .sound-head{font-size:13px;color:var(--muted);margin-bottom:12px;letter-spacing:.5px;text-align:center}
+  .sound-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .sound-grid button{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:14px 6px;border-radius:12px;font-size:13px;font-weight:600;transition:.12s}
+  .sound-grid button:active{transform:scale(.93);background:var(--accent);color:#1a1200}
+  @media(max-width:480px){.sound-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<!-- ============ LANDING ============ -->
+<div id="landing" class="screen active">
+  <div class="logo">LYNX<span>CHAT</span></div>
+  <div class="tagline">Talk to strangers · Video · Voice · Text</div>
+  <div class="online-pill">🟢 <b id="onlineCount">0</b> people online now</div>
+
+  <div class="card">
+    <div class="seg" id="modeSeg" style="margin-bottom:2px;">
+      <button data-mode="random" class="on">🎲 Random</button>
+      <button data-mode="friends">👥 Friends</button>
+    </div>
+
+    <!-- RANDOM STRANGER TAB -->
+    <div id="randomTab" style="display:flex; flex-direction:column; gap:16px;">
+      <div class="field">
+        <label>Your name (optional)</label>
+        <input id="nickname" maxlength="20" placeholder="e.g. Alex" autocomplete="off" />
+      </div>
+
+      <div class="field">
+        <label>Your country</label>
+        <select id="countrySelect"></select>
+      </div>
+
+      <div class="field">
+        <label>Who do you want to meet?</label>
+        <div class="seg" id="prefSeg">
+          <button data-pref="worldwide" class="on">🌍 Worldwide</button>
+          <button data-pref="same">🇸🇦 Same country</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Interests (optional, comma separated)</label>
+        <input id="interests" maxlength="80" placeholder="music, gaming, football" autocomplete="off" />
+      </div>
+
+      <button class="start-btn" id="startBtn">START CHATTING</button>
+      <div class="hint">Camera &amp; mic turn on when matched.<br/>You can turn them <b>off</b> anytime with the buttons.</div>
+    </div>
+
+    <!-- FRIENDS TAB -->
+    <div id="friendsTab" style="display:none; flex-direction:column; gap:14px;">
+      <div class="field">
+        <label>Your friend code — share it</label>
+        <div style="display:flex; gap:8px;">
+          <input id="myCode" readonly style="flex:1; font-weight:800; letter-spacing:2px; color:var(--accent);" />
+          <button id="copyCodeBtn" style="padding:0 16px; border-radius:12px; background:var(--accent); color:#1a1200; font-weight:800; font-size:13px;">Copy</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Connect with a friend's code</label>
+        <div style="display:flex; gap:8px;">
+          <input id="friendCodeInput" maxlength="24" placeholder="LYNX-XXXXXX" style="flex:1; text-transform:uppercase; letter-spacing:1px;" autocomplete="off" />
+          <button id="connectFriendBtn" style="padding:0 16px; border-radius:12px; background:var(--green); color:#052e1c; font-weight:800; font-size:13px;">Connect</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Your friends</label>
+        <div id="friendsList" style="display:flex; flex-direction:column; gap:8px; max-height:180px; overflow-y:auto;"></div>
+      </div>
+
+      <div class="hint">Share your code with a friend. Both of you open LYNX CHAT → Friends tab → enter the code → private 1-on-1 match 🔒</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SEARCHING ============ -->
+<div id="searching" class="screen">
+  <div class="pulse"><div class="eye">👁️</div></div>
+  <h2>Finding someone for you…</h2>
+  <div class="sub" id="searchSub">Searching worldwide. This can take a few seconds — keep this tab open.</div>
+  <button class="cancel-btn" id="cancelBtn">Cancel</button>
+</div>
+
+<!-- ============ CHAT ============ -->
+<div id="chat" class="screen">
+  <div class="video-wrap">
+    <video id="remoteVideo" autoplay playsinline></video>
+    <div class="remote-placeholder" id="remotePlaceholder">
+      <div class="big">👤</div>
+      <div class="txt">Connecting video…</div>
+    </div>
+
+    <div class="flag-badge" id="flagBadge">🇺🇳 Stranger</div>
+    <div class="conn-status" id="connStatus"><span class="dot"></span><span id="connText">Connecting…</span></div>
+
+    <div class="typing-ind" id="typingInd">Stranger is typing<span>.</span><span>.</span><span>.</span></div>
+
+    <div class="local-pip" id="localPip" style="display:none">
+      <video id="localVideo" autoplay playsinline muted></video>
+      <div class="muted-tag" id="mutedTag">🎤 muted</div>
+    </div>
+
+    <!-- text chat panel -->
+    <div class="chat-panel" id="chatPanel">
+      <div class="chat-head">
+        <span>💬 Messages</span>
+        <button class="close-x" id="closeChat">✕</button>
+      </div>
+      <div class="msgs" id="msgs"></div>
+      <div class="chat-input">
+        <input id="msgInput" placeholder="Type a message…" maxlength="2000" autocomplete="off" />
+        <button id="sendBtn">Send</button>
+      </div>
+    </div>
+
+    <!-- stranger left overlay -->
+    <div class="left-overlay" id="leftOverlay">
+      <h3>Stranger left 👋</h3>
+      <p>Want to meet someone new?</p>
+      <button id="nextAfterLeave">Find next person</button>
+    </div>
+
+    <!-- soundboard panel -->
+    <div class="sound-panel" id="soundPanel">
+      <div class="sound-head">🔊 Soundboard — both of you hear it!</div>
+      <div class="sound-grid">
+        <button data-snd="airhorn">📢 Airhorn</button>
+        <button data-snd="tada">🎉 Tada</button>
+        <button data-snd="applause">👏 Applause</button>
+        <button data-snd="boo">👎 Boo</button>
+        <button data-snd="siren">🚨 Siren</button>
+        <button data-snd="rimshot">🥁 Rimshot</button>
+        <button data-snd="fart">💨 Fart</button>
+        <button data-snd="sad">🎻 Sad</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl" id="micBtn" title="Toggle microphone">🎤</button>
+    <button class="ctrl" id="camBtn" title="Toggle camera">📷</button>
+    <button class="ctrl" id="chatBtn" title="Text chat">💬</button>
+    <button class="ctrl" id="soundBtn" title="Soundboard">🔊</button>
+    <button class="ctrl" id="addFriendBtn" title="Add this person as friend">➕</button>
+    <button class="ctrl next" id="nextBtn">NEXT ▶</button>
+    <button class="ctrl end" id="endBtn" title="End and go home">✕</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+/* ============================================================
+   LYNX CHAT v2 — client
+   ============================================================ */
+const $ = id => document.getElementById(id);
+
+// ---------- country list (code -> name) + flag emoji helper ----------
+const COUNTRIES = [
+  ["US","United States"],["GB","United Kingdom"],["CA","Canada"],["AU","Australia"],
+  ["IE","Ireland"],["NZ","New Zealand"],["IN","India"],["PK","Pakistan"],
+  ["BD","Bangladesh"],["NG","Nigeria"],["ZA","South Africa"],["KE","Kenya"],
+  ["GH","Ghana"],["AE","United Arab Emirates"],["SA","Saudi Arabia"],["EG","Egypt"],
+  ["QA","Qatar"],["KW","Kuwait"],["BH","Bahrain"],["OM","Oman"],
+  ["TR","Turkey"],["DE","Germany"],["FR","France"],["ES","Spain"],
+  ["IT","Italy"],["NL","Netherlands"],["BE","Belgium"],["PT","Portugal"],
+  ["SE","Sweden"],["NO","Norway"],["DK","Denmark"],["FI","Finland"],
+  ["PL","Poland"],["GR","Greece"],["CZ","Czechia"],["AT","Austria"],
+  ["CH","Switzerland"],["IE","Ireland"],["RU","Russia"],["UA","Ukraine"],
+  ["RO","Romania"],["HU","Hungary"],["RS","Serbia"],["HR","Croatia"],
+  ["BG","Bulgaria"],["IL","Israel"],["IR","Iran"],["IQ","Iraq"],
+  ["JO","Jordan"],["LB","Lebanon"],["SY","Syria"],["YE","Yemen"],
+  ["CN","China"],["JP","Japan"],["KR","South Korea"],["HK","Hong Kong"],
+  ["TW","Taiwan"],["SG","Singapore"],["MY","Malaysia"],["TH","Thailand"],
+  ["VN","Vietnam"],["PH","Philippines"],["ID","Indonesia"],["MM","Myanmar"],
+  ["KH","Cambodia"],["LA","Laos"],["MN","Mongolia"],["NP","Nepal"],
+  ["LK","Sri Lanka"],["AF","Afghanistan"],["MX","Mexico"],["BR","Brazil"],
+  ["AR","Argentina"],["CL","Chile"],["CO","Colombia"],["PE","Peru"],
+  ["VE","Venezuela"],["EC","Ecuador"],["BO","Bolivia"],["UY","Uruguay"],
+  ["PY","Paraguay"],["CR","Costa Rica"],["PA","Panama"],["GT","Guatemala"],
+  ["CU","Cuba"],["DO","Dominican Republic"],["PR","Puerto Rico"],["JM","Jamaica"],
+  ["TT","Trinidad and Tobago"],["HT","Haiti"],["IS","Iceland"],["LU","Luxembourg"],
+  ["MT","Malta"],["CY","Cyprus"],["EE","Estonia"],["LV","Latvia"],
+  ["LT","Lithuania"],["SK","Slovakia"],["SI","Slovenia"],["AL","Albania"],
+  ["MK","North Macedonia"],["BA","Bosnia"],["ME","Montenegro"],["MD","Moldova"],
+  ["GE","Georgia"],["AM","Armenia"],["AZ","Azerbaijan"],["KZ","Kazakhstan"],
+  ["UZ","Uzbekistan"],["BY","Belarus"],["LT","Lithuania"],["ET","Ethiopia"],
+  ["TZ","Tanzania"],["UG","Uganda"],["RW","Rwanda"],["SN","Senegal"],
+  ["CI","Côte d'Ivoire"],["CM","Cameroon"],["MA","Morocco"],["DZ","Algeria"],
+  ["TN","Tunisia"],["LY","Libya"],["SD","Sudan"],["AO","Angola"],
+  ["MZ","Mozambique"],["ZW","Zimbabwe"],["ZM","Zambia"],["BW","Botswana"],
+  ["NA","Namibia"],["MG","Madagascar"],["NZ","New Zealand"],["FJ","Fiji"],
+  ["PG","Papua New Guinea"]
+];
+// dedupe by code, keep first
+const seen = new Set();
+const COUNTRY_LIST = COUNTRIES.filter(([c]) => !seen.has(c) && seen.add(c));
+const flagEmoji = code => [...code.toUpperCase()].map(ch => String.fromCodePoint(127397 + ch.charCodeAt(0))).join("");
+const countryName = code => (COUNTRY_LIST.find(([c]) => c === code) || [])[1] || "Unknown";
+
+// fill country dropdown
+const sel = $("countrySelect");
+COUNTRY_LIST.forEach(([code, name]) => {
+  const o = document.createElement("option");
+  o.value = code; o.textContent = flagEmoji(code) + "  " + name;
+  sel.appendChild(o);
+});
+sel.value = "GB"; // default
+
+// preference segmented control
+let matchPref = "worldwide";
+$("prefSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  matchPref = b.dataset.pref;
+  [...$("prefSeg").children].forEach(x => x.classList.toggle("on", x === b));
+});
+
+// ---------- socket ----------
+const socket = io();
+socket.on("online", n => { $("onlineCount").textContent = n; });
+socket.on("searching", () => { showScreen("searching"); });
+socket.on("search:timeout", () => { toast("No one found yet — keep waiting or cancel."); });
+
+// ---------- state ----------
+let pc = null;
+let localStream = null;
+let micOn = true, camOn = true;
+let inCall = false;
+let iceQueue = [];
+let typingTimer = null;
+
+// ---------- screens ----------
+function showScreen(name){
+  ["landing","searching","chat"].forEach(s => $(s).classList.toggle("active", s === name));
+}
+function toast(msg, ms=3000){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
+}
+
+// ---------- start ----------
+$("startBtn").addEventListener("click", startSearch);
+$("cancelBtn").addEventListener("click", () => { socket.emit("leave"); showScreen("landing"); });
+
+function startSearch(){
+  const interests = $("interests").value.split(",").map(s => s.trim()).filter(Boolean);
+  showScreen("searching");
+  $("searchSub").textContent = matchPref === "same"
+    ? `Searching for someone in ${countryName(sel.value)} ${flagEmoji(sel.value)}…`
+    : "Searching worldwide 🌍 — this can take a few seconds, keep this tab open.";
+  socket.emit("join", { country: sel.value, pref: matchPref, interests });
+}
+
+// ---------- matched ----------
+socket.on("matched", async ({ initiator, partnerCountry, isFriend }) => {
+  inCall = true;
+  showScreen("chat");
+  resetChatUI(partnerCountry);
+  if (isFriend) addSys("👥 You're connected with a friend!");
+  await setupMediaAndPeer(initiator);
+});
+
+function resetChatUI(partnerCountry){
+  $("msgs").innerHTML = "";
+  $("chatPanel").classList.remove("open");
+  $("leftOverlay").classList.remove("show");
+  $("remotePlaceholder").style.display = "flex";
+  $("connStatus").classList.remove("live");
+  $("connText").textContent = "Connecting…";
+  $("flagBadge").textContent = partnerCountry ? `${flagEmoji(partnerCountry)} ${countryName(partnerCountry)}` : "🇺🇳 Stranger";
+  addSys("You are now connected. Say hi! 👋");
+}
+
+// ---------- media + webrtc ----------
+const RTC_CFG = { iceServers: [
+  { urls: ["stun:stun.l.google.com:19302","stun:stun1.l.google.com:19302"] }
+]};
+
+async function setupMediaAndPeer(initiator){
+  // 1) grab mic + cam (best effort — text chat still works without them)
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  } catch (err) {
+    console.warn("getUserMedia failed:", err);
+    localStream = null;
+    toast("Camera/mic blocked or unavailable — text chat still works!", 5000);
+    $("camBtn").classList.add("off"); $("micBtn").classList.add("off");
+    camOn = false; micOn = false;
+  }
+
+  if (localStream){
+    $("localVideo").srcObject = localStream;
+    $("localPip").style.display = "block";
+    micOn = true; camOn = true;
+    $("micBtn").classList.remove("off"); $("camBtn").classList.remove("off");
+    $("mutedTag").style.display = "none";
+  }
+
+  // 2) build peer connection
+  iceQueue = [];
+  pc = new RTCPeerConnection(RTC_CFG);
+
+  if (localStream){
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  }
+
+  pc.onicecandidate = e => {
+    if (e.candidate) socket.emit("webrtc:ice", e.candidate);
+  };
+  pc.ontrack = e => {
+    $("remoteVideo").srcObject = e.streams[0];
+    $("remotePlaceholder").style.display = "none";
+  };
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    if (s === "connected"){
+      $("connStatus").classList.add("live");
+      $("connText").textContent = "Live";
+    } else if (s === "failed" || s === "disconnected"){
+      $("connText").textContent = "Reconnecting…";
+    }
+  };
+
+  // flush queued ICE candidates once remote description is set
+  pc._flushIce = async () => {
+    while (iceQueue.length){
+      const c = iceQueue.shift();
+      try { await pc.addIceCandidate(c); } catch(_){}
+    }
+  };
+
+  if (initiator){
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      socket.emit("webrtc:offer", offer);
+    } catch(err){ console.error(err); }
+  }
+}
+
+socket.on("webrtc:offer", async offer => {
+  if (!pc) return;
+  try {
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    await pc._flushIce();
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit("webrtc:answer", answer);
+  } catch(err){ console.error(err); }
+});
+
+socket.on("webrtc:answer", async answer => {
+  if (!pc) return;
+  try {
+    await pc.setRemoteDescription(new RTCSessionDescription(answer));
+    await pc._flushIce();
+  } catch(err){ console.error(err); }
+});
+
+socket.on("webrtc:ice", async candidate => {
+  if (!pc) return;
+  if (pc.remoteDescription && pc.remoteDescription.type){
+    try { await pc.addIceCandidate(candidate); } catch(_){}
+  } else {
+    iceQueue.push(candidate);
+  }
+});
+
+// ---------- controls ----------
+$("micBtn").addEventListener("click", () => {
+  if (!localStream){ toast("No mic available"); return; }
+  micOn = !micOn;
+  localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+  $("micBtn").classList.toggle("off", !micOn);
+  $("mutedTag").style.display = micOn ? "none" : "block";
+  $("micBtn").textContent = micOn ? "🎤" : "🔇";
+});
+$("camBtn").addEventListener("click", () => {
+  if (!localStream){ toast("No camera available"); return; }
+  camOn = !camOn;
+  localStream.getVideoTracks().forEach(t => t.enabled = camOn);
+  $("camBtn").classList.toggle("off", !camOn);
+  $("camBtn").textContent = camOn ? "📷" : "🚫";
+  if (!camOn) $("localPip").style.opacity = ".25"; else $("localPip").style.opacity = "1";
+});
+
+// text chat toggle
+$("chatBtn").addEventListener("click", () => {
+  $("chatPanel").classList.toggle("open");
+  if ($("chatPanel").classList.contains("open")) $("msgInput").focus();
+});
+$("closeChat").addEventListener("click", () => $("chatPanel").classList.remove("open"));
+
+// send message
+function sendMsg(){
+  const v = $("msgInput").value.trim();
+  if (!v || !inCall) return;
+  socket.emit("chat:message", v);
+  addMsg(v, "me");
+  $("msgInput").value = "";
+  socket.emit("stop:typing");
+}
+$("sendBtn").addEventListener("click", sendMsg);
+$("msgInput").addEventListener("keydown", e => { if (e.key === "Enter") sendMsg(); });
+$("msgInput").addEventListener("input", () => {
+  socket.emit("typing");
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => socket.emit("stop:typing"), 1200);
+});
+
+socket.on("chat:message", text => { addMsg(text, "them"); $("typingInd").classList.remove("show"); });
+socket.on("typing", () => $("typingInd").classList.add("show"));
+socket.on("stop:typing", () => $("typingInd").classList.remove("show"));
+
+function addMsg(text, who){
+  const d = document.createElement("div");
+  d.className = "msg " + who;
+  d.textContent = text;
+  $("msgs").appendChild(d);
+  $("msgs").scrollTop = $("msgs").scrollHeight;
+}
+function addSys(text){
+  const d = document.createElement("div");
+  d.className = "sys"; d.textContent = text;
+  $("msgs").appendChild(d);
+}
+
+// ---------- next / end / partner left ----------
+function hangup(){
+  inCall = false;
+  if (pc){ try { pc.close(); } catch(_){} pc = null; }
+  if (localStream){ localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  $("localPip").style.display = "none";
+  $("remoteVideo").srcObject = null;
+}
+
+$("nextBtn").addEventListener("click", () => {
+  hangup();
+  socket.emit("leave");
+  startSearch();
+});
+$("endBtn").addEventListener("click", () => {
+  hangup();
+  socket.emit("leave");
+  showScreen("landing");
+});
+$("nextAfterLeave").addEventListener("click", () => {
+  $("leftOverlay").classList.remove("show");
+  startSearch();
+});
+
+socket.on("partner:left", () => {
+  if (!inCall) return;
+  hangup();
+  addSys("Stranger left the chat.");
+  $("leftOverlay").classList.add("show");
+});
+
+// page hide -> leave
+window.addEventListener("beforeunload", () => { if (inCall) socket.emit("leave"); });
+
+/* ================= SOUNDBOARD (Web Audio synth — no files needed) ================= */
+let actx = null;
+function ensureCtx(){
+  if (!actx){ const AC = window.AudioContext || window.webkitAudioContext; actx = new AC(); }
+  if (actx.state === "suspended") actx.resume();
+  return actx;
+}
+function noiseBuf(ctx, dur){
+  const len = Math.floor(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i=0;i<len;i++) d[i] = Math.random()*2-1;
+  return buf;
+}
+const SOUNDS = {
+  airhorn(ctx){
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type="sawtooth";
+    o.frequency.setValueAtTime(440,ctx.currentTime);
+    o.frequency.linearRampToValueAtTime(220,ctx.currentTime+0.8);
+    g.gain.setValueAtTime(0.3,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.9);
+    o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.9);
+  },
+  tada(ctx){
+    [523.25,659.25,783.99,1046.5].forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type="triangle"; o.frequency.value=f;
+      const t=ctx.currentTime+i*0.12;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.25,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+0.45);
+    });
+  },
+  applause(ctx){
+    const src=ctx.createBufferSource(); src.buffer=noiseBuf(ctx,1.5);
+    const f=ctx.createBiquadFilter(); f.type="bandpass"; f.frequency.value=2200; f.Q.value=0.6;
+    const g=ctx.createGain();
+    g.gain.setValueAtTime(0.0001,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.35,ctx.currentTime+0.2);
+    g.gain.setValueAtTime(0.35,ctx.currentTime+1.0);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+1.5);
+    src.connect(f).connect(g).connect(ctx.destination); src.start();
+  },
+  boo(ctx){
+    const src=ctx.createBufferSource(); src.buffer=noiseBuf(ctx,1.2);
+    const f=ctx.createBiquadFilter(); f.type="lowpass"; f.frequency.value=380;
+    const g=ctx.createGain();
+    g.gain.setValueAtTime(0.3,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+1.2);
+    src.connect(f).connect(g).connect(ctx.destination); src.start();
+  },
+  siren(ctx){
+    for(let i=0;i<3;i++){
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type="square"; const t=ctx.currentTime+i*0.6;
+      o.frequency.setValueAtTime(600,t);
+      o.frequency.linearRampToValueAtTime(1200,t+0.3);
+      o.frequency.linearRampToValueAtTime(600,t+0.6);
+      g.gain.setValueAtTime(0.12,t);
+      g.gain.setValueAtTime(0.12,t+0.55);
+      g.gain.linearRampToValueAtTime(0.001,t+0.6);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+0.6);
+    }
+  },
+  rimshot(ctx){
+    [0,0.15].forEach((dt,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type="sine"; o.frequency.value=i===0?150:110;
+      const t=ctx.currentTime+dt;
+      g.gain.setValueAtTime(0.4,t);
+      g.gain.exponentialRampToValueAtTime(0.001,t+0.12);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+0.15);
+    });
+    const src=ctx.createBufferSource(); src.buffer=noiseBuf(ctx,0.3);
+    const f=ctx.createBiquadFilter(); f.type="highpass"; f.frequency.value=5000;
+    const g=ctx.createGain(); const t=ctx.currentTime+0.3;
+    g.gain.setValueAtTime(0.22,t);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+    src.connect(f).connect(g).connect(ctx.destination); src.start(t);
+  },
+  fart(ctx){
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type="sawtooth";
+    o.frequency.setValueAtTime(300,ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(70,ctx.currentTime+0.5);
+    g.gain.setValueAtTime(0.28,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.55);
+    o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.55);
+    const src=ctx.createBufferSource(); src.buffer=noiseBuf(ctx,0.5);
+    const f=ctx.createBiquadFilter(); f.type="lowpass"; f.frequency.value=500;
+    const g2=ctx.createGain(); g2.gain.value=0.15;
+    src.connect(f).connect(g2).connect(ctx.destination); src.start();
+  },
+  sad(ctx){
+    [392,370,349,311].forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type="sawtooth"; o.frequency.value=f;
+      const t=ctx.currentTime+i*0.35;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.18,t+0.05);
+      g.gain.setValueAtTime(0.18,t+0.25);
+      g.gain.exponentialRampToValueAtTime(0.001,t+0.38);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t+0.4);
+    });
+  }
+};
+function playSound(name){
+  const ctx = ensureCtx();
+  const fn = SOUNDS[name]; if (fn) { try { fn(ctx); } catch(e){} }
+  if (inCall) socket.emit("sound:play", name);
+}
+socket.on("sound:play", name => {
+  const ctx = ensureCtx();
+  const fn = SOUNDS[name]; if (fn) { try { fn(ctx); } catch(e){} }
+});
+
+// soundboard toggle + buttons
+$("soundBtn").addEventListener("click", () => {
+  ensureCtx(); // unlock audio on user gesture
+  $("soundPanel").classList.toggle("open");
+  if ($("soundPanel").classList.contains("open")) $("chatPanel").classList.remove("open");
+});
+document.querySelectorAll(".sound-grid button").forEach(b => {
+  b.addEventListener("click", () => playSound(b.dataset.snd));
+});
+// close soundboard when chat opens
+$("chatBtn").addEventListener("click", () => { if ($("chatPanel").classList.contains("open")) $("soundPanel").classList.remove("open"); });
+
+/* ================= FRIENDS SYSTEM ================= */
+const LS_CODE = "lynxMyCode", LS_FRIENDS = "lynxFriends";
+const myNick = () => ($("nickname").value || "Stranger").slice(0, 20);
+function escapeHtml(s){ const d=document.createElement("div"); d.textContent=String(s||""); return d.innerHTML; }
+
+function getMyCode(){
+  let c = localStorage.getItem(LS_CODE);
+  if (!c){
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let s = ""; for (let i=0;i<6;i++) s += chars[Math.floor(Math.random()*chars.length)];
+    c = "LYNX-" + s; localStorage.setItem(LS_CODE, c);
+  }
+  return c;
+}
+function getFriends(){ try { return JSON.parse(localStorage.getItem(LS_FRIENDS)||"[]"); } catch(e){ return []; } }
+function saveFriends(f){ localStorage.setItem(LS_FRIENDS, JSON.stringify((f||[]).slice(0,50))); }
+function addFriend(code, nick){
+  if (!code) return;
+  const f = getFriends();
+  if (!f.some(x => x.code === code)) f.push({ code, nick: (nick||"Friend").slice(0,20) });
+  saveFriends(f); renderFriends();
+}
+function renderFriends(){
+  const box = $("friendsList"); if (!box) return;
+  const f = getFriends();
+  box.innerHTML = "";
+  if (!f.length){
+    box.innerHTML = '<div style="color:var(--muted); font-size:13px; padding:10px; text-align:center;">No friends yet.<br/>Match with someone → tap ➕ during chat!</div>';
+    return;
+  }
+  f.forEach((fr, i) => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex; align-items:center; gap:8px; background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:9px 12px;";
+    const name = document.createElement("span");
+    name.style.cssText = "flex:1; font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+    name.textContent = fr.nick || "Friend";
+    const code = document.createElement("span");
+    code.style.cssText = "font-size:11px; color:var(--muted); letter-spacing:1px;";
+    code.textContent = fr.code;
+    const connect = document.createElement("button");
+    connect.textContent = "▶"; connect.title = "Connect with this friend";
+    connect.style.cssText = "background:var(--green); color:#052e1c; border:none; width:32px; height:30px; border-radius:8px; font-weight:900; cursor:pointer; flex-shrink:0;";
+    connect.onclick = () => connectWithCode(fr.code);
+    const del = document.createElement("button");
+    del.textContent = "✕"; del.title = "Remove friend";
+    del.style.cssText = "background:transparent; color:var(--muted); border:none; width:26px; height:30px; border-radius:8px; cursor:pointer; font-size:12px; flex-shrink:0;";
+    del.onclick = () => { const ff = getFriends(); ff.splice(i,1); saveFriends(ff); renderFriends(); };
+    row.appendChild(name); row.appendChild(code); row.appendChild(connect); row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+function connectWithCode(code){
+  code = String(code||"").trim().toUpperCase();
+  if (!code){ toast("Enter a friend code first"); return; }
+  showScreen("searching");
+  $("searchSub").textContent = `Calling friend ${code}… waiting for them to open LYNX CHAT and enter your code.`;
+  socket.emit("join", { room: code });
+}
+
+// mode tab switch (Random / Friends)
+let mode = "random";
+$("modeSeg").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  mode = b.dataset.mode;
+  [...$("modeSeg").children].forEach(x => x.classList.toggle("on", x === b));
+  $("randomTab").style.display = mode === "random" ? "flex" : "none";
+  $("friendsTab").style.display = mode === "friends" ? "flex" : "none";
+  if (mode === "friends"){ $("myCode").value = getMyCode(); renderFriends(); }
+});
+$("copyCodeBtn").addEventListener("click", async () => {
+  const c = getMyCode();
+  try { await navigator.clipboard.writeText(c); toast("📋 Friend code copied! Share it with your mate."); }
+  catch(e){ prompt("Copy your friend code:", c); }
+});
+$("connectFriendBtn").addEventListener("click", () => connectWithCode($("friendCodeInput").value));
+$("friendCodeInput").addEventListener("keydown", e => { if (e.key === "Enter") connectWithCode($("friendCodeInput").value); });
+
+// add friend during a chat
+$("addFriendBtn").addEventListener("click", () => {
+  if (!inCall){ toast("You need to be matched with someone first"); return; }
+  socket.emit("friend:request", { code: getMyCode(), nick: myNick() });
+  toast("Friend request sent! Waiting for them to accept…");
+});
+socket.on("friend:request", ({ code, nick }) => {
+  const ok = confirm(`${nick} wants to add you as a friend! 👥\n\nAccept?`);
+  if (ok){
+    addFriend(code, nick);
+    socket.emit("friend:accept", { code: getMyCode(), nick: myNick() });
+    toast(`🎉 You are now friends with ${nick}!`);
+  }
+});
+socket.on("friend:accept", ({ code, nick }) => {
+  addFriend(code, nick);
+  toast(`🎉 ${nick} accepted your friend request!`);
+});
+
+// init: pre-generate code so it's ready
+getMyCode();
+</script>
+</body>
+</html>
